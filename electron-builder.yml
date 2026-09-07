@@ -21,7 +21,9 @@ files:
   - '!electron-builder.yml'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json,tsconfig.*.tsbuildinfo}'
   - '!{.env,.env.*,.npmrc,.gitignore}'
-  - '!{README.md,CHANGELOG.md}'
+  - '!*.md'
+  - '!gerar-instalador.bat'
+  - '!scripts/*'
 
 asar: true
 
