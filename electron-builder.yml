@@ -7,7 +7,7 @@ copyright: Copyright © 2026 Donatto Pieve
 publish:
   provider: github
   owner: DonattoPieve
-  repo: Pluto
+  repo: finances
 
 directories:
   buildResources: build

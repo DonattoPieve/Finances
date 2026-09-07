@@ -17,3 +17,6 @@ dist/
 *.db-wal
 *.db-shm
 pluto-backup-*.json
+
+# Sobras que o git deixou ao ser rodado de fora do Windows; pode apagar a pasta.
+_to_delete/

@@ -5,7 +5,7 @@ você faz três coisas: sobe o número, roda `npm run release`, e publica o rasc
 
 ## Uma vez só, antes da primeira publicação
 
-**1. Criar o repositório.** Em <https://github.com/new>: nome `Pluto`, **público**, sem
+**1. Criar o repositório.** Em <https://github.com/new>: nome `finances`, **público**, sem
 README nem .gitignore (o projeto já tem os dois). O nome e o dono precisam bater com o
 que está no `electron-builder.yml`:
 
@@ -13,19 +13,19 @@ que está no `electron-builder.yml`:
 publish:
   provider: github
   owner: DonattoPieve
-  repo: Pluto
+  repo: finances
 ```
 
 **2. Mandar o código.** Na pasta do projeto:
 
 ```
-git remote add origin https://github.com/DonattoPieve/Pluto.git
+git remote add origin https://github.com/DonattoPieve/finances.git
 git push -u origin main
 ```
 
 **3. Criar o token que sobe os arquivos.** GitHub → Settings → Developer settings →
 Personal access tokens → **Fine-grained tokens** → Generate new token. Dê acesso só ao
-repositório `Pluto`, e em Permissions marque **Contents: Read and write**. Copie o token
+repositório `finances`, e em Permissions marque **Contents: Read and write**. Copie o token
 (ele só aparece uma vez).
 
 **4. Guardar o token na máquina**, para o electron-builder achar sozinho:
@@ -57,7 +57,7 @@ Isso roda a bateria de verificação, compila, empacota e sobe para o GitHub. Se
 verificação falhar, nada é publicado — de propósito.
 
 **3. Publique o rascunho.** O electron-builder cria o release como **draft**, e um draft é
-invisível para o app. Vá em <https://github.com/DonattoPieve/Pluto/releases>, escreva o
+invisível para o app. Vá em <https://github.com/DonattoPieve/finances/releases>, escreva o
 que mudou (esse texto aparece dentro do Pluto, na tela de Configurações) e clique em
 **Publish release**.
 
