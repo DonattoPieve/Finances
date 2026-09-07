@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm -v)",
+      "Bash(rustc --version)",
+      "Bash(cargo --version)",
+      "Bash(where cl.exe)",
+      "Bash(where link.exe)",
+      "Bash(\"C:/Program Files \\(x86\\)/Microsoft Visual Studio/Installer/vswhere.exe\" -latest -products \\\\*)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "PowerShell(Get-Process *)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(tasklist //FI \"PID eq 35644\")",
+      "Bash(taskkill //F //T //PID 35644)",
+      "Bash(tasklist *)"
+    ]
+  }
+}

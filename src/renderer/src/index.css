@@ -1,0 +1,150 @@
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/500.css';
+@import '@fontsource/jetbrains-mono/600.css';
+@import '@fontsource/jetbrains-mono/700.css';
+@import 'tailwindcss';
+
+/* ------------------------------------------------------------------
+   Tokens, no mesmo desenho do Athena. Componente novo usa SEMPRE
+   var(--c-*) ou a classe Tailwind que aponta para ela — nunca hex fixo.
+   Trocar um valor aqui move o app inteiro.
+   ------------------------------------------------------------------ */
+
+:root {
+  /* Cinza NEUTRO, não azulado. O antigo #0b0e14 puxava para o azul e, com
+     acento azul em cima, dava no mesmo tema escuro de todo app gerado por IA.
+     O acento agora é o bronze do Athena. */
+  --c-bg: #0f0f10;
+  --c-surface: #1a1a1b;
+  --c-card: #141415;
+  --c-border: #2a2a2c;
+  --c-text: #f2f0ec;
+  --c-muted: #8f8b83;
+  /* Terceiro nível de texto, que o Athena não precisa ter: aqui existe
+     legenda de legenda (contagem, "Padrão", prazo da lixeira). */
+  --c-faint: #6b6862;
+  --c-accent: #d0a250;
+  --c-accent-hover: #e0b76d;
+  --c-accent-light: rgba(208, 162, 80, 0.14);
+
+  /* Cores de estado. Vêm das paletas do próprio Athena, para não introduzir
+     um vermelho ou verde estranhos ao conjunto. */
+  --c-entrada: #4ade80;
+  --c-saida: #e24b4a;
+  --c-alerta: #fbbf24;
+
+  --dots: rgba(208, 162, 80, 0.1);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.45);
+  --shadow-card-hover: 0 2px 4px rgba(0, 0, 0, 0.5), 0 12px 28px rgba(0, 0, 0, 0.55);
+
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 10px;
+  --r-2xl: 16px;
+}
+
+@theme inline {
+  --color-bg: var(--c-bg);
+  --color-surface: var(--c-surface);
+  --color-card: var(--c-card);
+  --color-line: var(--c-border);
+  --color-ink: var(--c-text);
+  --color-muted: var(--c-muted);
+  --color-faint: var(--c-faint);
+  --color-accent: var(--c-accent);
+  --color-accent-hover: var(--c-accent-hover);
+  --color-accent-light: var(--c-accent-light);
+  --color-entrada: var(--c-entrada);
+  --color-saida: var(--c-saida);
+  --color-alerta: var(--c-alerta);
+
+  /* `rounded-xl` é botão e campo (10px), `rounded-2xl` é card (16px). */
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-md);
+  --radius-xl: var(--r-lg);
+  --radius-2xl: var(--r-2xl);
+
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  /* Fonte da INTERFACE. Nada é baixado: no Windows é a Segoe UI Variable, que
+     já está lá. A mono continua onde significa alguma coisa — ver `.num`. */
+  --font-ui:
+    'Segoe UI Variable Text', 'Segoe UI', ui-sans-serif, system-ui, -apple-system,
+    'Helvetica Neue', Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--c-bg);
+  background-image: radial-gradient(var(--dots) 1px, transparent 1px);
+  background-size: 22px 22px;
+  color: var(--c-text);
+  font-family: var(--font-ui);
+  /* Meio ponto a mais que os 13px da mono: a sans desenha mais estreita e
+     menor, e sem isto a interface pareceria ter encolhido. */
+  font-size: 13.5px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/*
+ * O que continua monoespacado, agora que a interface não é mais.
+ *
+ * `.num` é para número que o olho compara em coluna: valor em R$, data,
+ * percentual, caminho de arquivo. Fora daí, a mono vira só estética de
+ * terminal — que é o default de quem não escolheu fonte, não uma escolha.
+ */
+code,
+kbd,
+samp,
+pre,
+.num {
+  font-family: var(--font-mono);
+}
+
+/* Tabular: os dígitos ocupam a mesma largura, então a coluna de valores
+   não “dança” quando o número muda. */
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background-color: color-mix(in srgb, var(--c-accent) 35%, transparent);
+}
+
+/* A barra de rolagem é do Pluto, não do Chromium. Propriedades herdadas:
+   declaradas aqui, valem para todo painel que rola. Trilho transparente de
+   propósito — barra de rolagem é orientação, não moldura. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--c-border) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--c-border);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--c-muted);
+}

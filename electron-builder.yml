@@ -1,0 +1,49 @@
+appId: com.donattopieve.pluto
+productName: Pluto
+copyright: Copyright © 2026 Donatto Pieve
+
+# Serve para os dois lados: `electron-builder --publish always` sobe os arquivos
+# para cá, e o `latest.yml` empacotado junto diz ao app instalado onde procurar.
+publish:
+  provider: github
+  owner: DonattoPieve
+  repo: Pluto
+
+directories:
+  buildResources: build
+  output: dist
+
+files:
+  - '!**/.vscode/*'
+  - '!.claude/*'
+  - '!src/*'
+  - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!electron-builder.yml'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json,tsconfig.*.tsbuildinfo}'
+  - '!{.env,.env.*,.npmrc,.gitignore}'
+  - '!{README.md,CHANGELOG.md}'
+
+asar: true
+
+win:
+  executableName: Pluto
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+  artifactName: ${productName}-${version}-setup.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Pluto
+  deleteAppDataOnUninstall: false
+  artifactName: ${productName}-${version}-setup.${ext}
+
+portable:
+  artifactName: ${productName}-${version}-portable.${ext}

@@ -1,0 +1,19 @@
+node_modules/
+out/
+dist/
+*.log
+.DS_Store
+*.tsbuildinfo
+
+# O repositório é público: nada de segredo versionado.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Dados e backups pessoais nunca entram no repositório.
+*.db
+*.db-wal
+*.db-shm
+pluto-backup-*.json
