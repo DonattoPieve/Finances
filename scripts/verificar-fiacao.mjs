@@ -7,7 +7,16 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 const raiz = path.resolve(import.meta.dirname, '..')
-const ler = (p) => fs.readFileSync(path.join(raiz, p), 'utf-8')
+/**
+ * Lê normalizando o fim de linha.
+ *
+ * O runner do GitHub faz checkout com CRLF (é o padrão do git no Windows), e os
+ * regexes daqui procuram `\n` literal — um `\n\n` vira `\r\n\r\n` e não casa.
+ * Isso quebrou o Action com um TypeError enquanto passava na máquina local, que
+ * tem o checkout em LF. Normalizar na leitura resolve para todas as checagens
+ * de uma vez; o `.gitattributes` cuida do outro lado do problema.
+ */
+const ler = (p) => fs.readFileSync(path.join(raiz, p), 'utf-8').replace(/\r\n/g, '\n')
 
 let ok = 0
 const falhas = []
@@ -93,8 +102,12 @@ t('toda chamada do renderer existe no preload', () => {
 console.log('\n\x1b[1mTelas\x1b[0m')
 
 const store = ler('src/renderer/src/store/useAppStore.ts')
-const trecho = store.match(/export type View =([\s\S]*?)\n\n/)
-const views = [...trecho[1].matchAll(/'([^']+)'/g)].map((m) => m[1])
+const trecho = store.match(/export type View =([\s\S]*?)\n\s*\n/)
+if (!trecho) {
+  falhas.push('não achei o union `export type View` em useAppStore.ts')
+  console.log('  \x1b[31mFALHOU\x1b[0m não achei o union `export type View` em useAppStore.ts')
+}
+const views = trecho ? [...trecho[1].matchAll(/'([^']+)'/g)].map((m) => m[1]) : []
 
 t(`${views.length} telas declaradas em View`, () => assert(views.length >= 7, `só achei ${views.length}`))
 

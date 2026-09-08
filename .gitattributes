@@ -1,0 +1,18 @@
+# O repositório guarda tudo em LF, e o checkout entrega LF em qualquer sistema.
+#
+# Sem isto o git do Windows converte para CRLF ao clonar, e o runner do GitHub
+# passa a ver arquivos diferentes dos da máquina de desenvolvimento — foi assim
+# que a checagem de fiação quebrou só no CI, com um TypeError sem explicação.
+* text=auto eol=lf
+
+# Arquivo de lote precisa de CRLF: o cmd.exe do Windows engasga com LF em
+# algumas construções.
+*.bat text eol=crlf
+
+# Binários não passam por conversão nenhuma.
+*.ico binary
+*.png binary
+*.exe binary
+*.woff binary
+*.woff2 binary
+*.db binary
