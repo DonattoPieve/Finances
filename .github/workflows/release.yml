@@ -63,41 +63,54 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # O passo que faltava.
+      # A rede de segurança da publicação.
       #
-      # No v0.2.2 o Release saiu sem o `latest.yml` e o app respondeu 404 ao
-      # procurar atualização — falha silenciosa: o build passou verde e só quem
-      # clicou no botão descobriu. O electron-builder sobe esse arquivo por
-      # último e, quando dois publishers disputam a criação do mesmo Release, ele
-      # se perde no caminho.
+      # O electron-builder subiu releases incompletos duas vezes seguidas: o
+      # v0.2.2 ficou sem o `latest.yml` e o v0.3.0 ficou só com o `.blockmap`,
+      # sem nem o instalador. O publisher dele cria o Release e envia os
+      # arquivos em paralelo, e quando um envio falha o build ainda termina
+      # verde — a falha só aparece para quem clica em "Buscar atualizações".
       #
-      # Aqui o arquivo do MESMO build é anexado se estiver faltando (o sha512
-      # dentro dele precisa casar com o .exe publicado, então não serve um
-      # gerado em outra máquina), e o passo quebra se ainda assim não estiver lá.
-      - name: Garantir o latest.yml no Release
+      # Aqui os três arquivos são conferidos um a um e enviados com o `gh` se
+      # estiverem faltando. São os do MESMO build: o `latest.yml` carrega o
+      # sha512 do instalador, então um gerado noutra máquina passaria na
+      # conferência e quebraria no download.
+      - name: Conferir e completar os arquivos do Release
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
           tag="$GITHUB_REF_NAME"
 
-          if [ ! -f dist/latest.yml ]; then
-            echo "O build nao gerou dist/latest.yml. Sem ele nao existe atualizacao automatica."
-            exit 1
-          fi
+          echo "O build gerou:"
+          ls -la dist
 
-          if gh release view "$tag" --json assets --jq '.assets[].name' | grep -qx 'latest.yml'; then
-            echo "latest.yml ja estava no Release."
-          else
-            echo "latest.yml faltando — anexando o do proprio build."
-            gh release upload "$tag" dist/latest.yml --clobber
-          fi
+          instalador=$(ls dist/pluto_*_setup.exe)
+          blockmap="${instalador}.blockmap"
+          for arquivo in "$instalador" "$blockmap" dist/latest.yml; do
+            test -f "$arquivo" || { echo "O build nao gerou $arquivo."; exit 1; }
+          done
 
-          echo "Arquivos publicados em $tag:"
-          gh release view "$tag" --json assets --jq '.assets[].name'
+          publicados() { gh release view "$tag" --json assets --jq '.assets[].name'; }
 
-          gh release view "$tag" --json assets --jq '.assets[].name' \
-            | grep -qx 'latest.yml' || {
-              echo "latest.yml continua ausente. Atualizacao automatica ficaria quebrada."
+          for arquivo in "$instalador" "$blockmap" dist/latest.yml; do
+            nome=$(basename "$arquivo")
+            if publicados | grep -qx "$nome"; then
+              echo "ok  $nome ja estava no Release"
+            else
+              echo "--  $nome faltando, enviando"
+              gh release upload "$tag" "$arquivo" --clobber
+            fi
+          done
+
+          echo "Arquivos no Release $tag:"
+          publicados
+
+          for arquivo in "$instalador" "$blockmap" dist/latest.yml; do
+            nome=$(basename "$arquivo")
+            publicados | grep -qx "$nome" || {
+              echo "$nome continua ausente. A atualizacao automatica ficaria quebrada."
               exit 1
             }
+          done

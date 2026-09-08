@@ -39,7 +39,7 @@ win:
   target:
     - target: nsis
       arch: [x64]
-  artifactName: ${productName}-${version}-setup.${ext}
+  artifactName: pluto_${version}_setup.${ext}
 
 nsis:
   oneClick: false
@@ -49,4 +49,4 @@ nsis:
   createStartMenuShortcut: true
   shortcutName: Pluto
   deleteAppDataOnUninstall: false
-  artifactName: ${productName}-${version}-setup.${ext}
+  artifactName: pluto_${version}_setup.${ext}
