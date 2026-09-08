@@ -94,6 +94,14 @@ Os dados em `%APPDATA%\Pluto` não são tocados em nenhum momento disso.
   não acontecer.
 - **O `latest.yml` é obrigatório** no Release. Ele sobe junto com o `.exe`; é o arquivo
   que o app lê para saber qual é a versão mais nova. Não apague.
+- **Se o botão de atualizar der 404**, é esse arquivo que faltou no Release. Aconteceu no
+  v0.2.2: o electron-builder sobe o `latest.yml` por último e ele se perdeu. O workflow
+  agora confere isso no fim e anexa o arquivo do próprio build se estiver faltando — se
+  nem assim aparecer, o Action quebra em vez de publicar uma versão que ninguém consegue
+  baixar. O `latest.yml` precisa ser o do mesmo build do `.exe`: o sha512 dentro dele é
+  conferido no download, então não adianta gerar um em outra máquina.
+- **Release duplicado para a mesma tag** também quebra: o app lê o mais recente, e o
+  arquivo pode ter ido para o outro. Se aparecerem dois, apague o que estiver incompleto.
 - **O Windows vai dizer "editor desconhecido"** na instalação, porque o app não é
   assinado. Certificado de code signing custa caro por ano e não vale para uso próprio.
 - **Repositório público.** O código fica visível; seus lançamentos, não — eles moram em

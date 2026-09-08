@@ -62,3 +62,42 @@ jobs:
         run: npm run dist:publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # O passo que faltava.
+      #
+      # No v0.2.2 o Release saiu sem o `latest.yml` e o app respondeu 404 ao
+      # procurar atualização — falha silenciosa: o build passou verde e só quem
+      # clicou no botão descobriu. O electron-builder sobe esse arquivo por
+      # último e, quando dois publishers disputam a criação do mesmo Release, ele
+      # se perde no caminho.
+      #
+      # Aqui o arquivo do MESMO build é anexado se estiver faltando (o sha512
+      # dentro dele precisa casar com o .exe publicado, então não serve um
+      # gerado em outra máquina), e o passo quebra se ainda assim não estiver lá.
+      - name: Garantir o latest.yml no Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="$GITHUB_REF_NAME"
+
+          if [ ! -f dist/latest.yml ]; then
+            echo "O build nao gerou dist/latest.yml. Sem ele nao existe atualizacao automatica."
+            exit 1
+          fi
+
+          if gh release view "$tag" --json assets --jq '.assets[].name' | grep -qx 'latest.yml'; then
+            echo "latest.yml ja estava no Release."
+          else
+            echo "latest.yml faltando — anexando o do proprio build."
+            gh release upload "$tag" dist/latest.yml --clobber
+          fi
+
+          echo "Arquivos publicados em $tag:"
+          gh release view "$tag" --json assets --jq '.assets[].name'
+
+          gh release view "$tag" --json assets --jq '.assets[].name' \
+            | grep -qx 'latest.yml' || {
+              echo "latest.yml continua ausente. Atualizacao automatica ficaria quebrada."
+              exit 1
+            }
