@@ -9,8 +9,10 @@ e criar um atalho do `Pluto.exe` na area de trabalho.
 De um duplo clique em **gerar-instalador.bat** na raiz do projeto.
 Ele roda `npm install` e `npm run dist` e, no fim, abre a pasta `dist` com:
 
-- `Pluto-0.1.0-setup.exe` — instalador (cria atalhos no menu iniciar e na area de trabalho)
-- `Pluto-0.1.0-portable.exe` — versao portatil em um arquivo so
+- `Pluto-<versao>-setup.exe` — instalador (cria atalhos no menu iniciar e na area de trabalho)
+
+Se voce quiser rodar sem instalar, use a pasta `dist\win-unpacked\` que o build deixa
+pronta: e o mesmo app, so que sem passar pelo instalador.
 
 ## Onde ficam os dados
 `%APPDATA%\Pluto\pluto.db`

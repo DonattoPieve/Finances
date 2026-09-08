@@ -1,5 +1,6 @@
 import { Bell, Settings } from 'lucide-react'
 import { PeriodFilter } from '../dashboard/PeriodFilter'
+import { UpdateBadge } from './UpdateBadge'
 import { useAppStore, type View } from '../../store/useAppStore'
 
 const VIEW_TITLES: Record<View, { title: string; subtitle?: string }> = {
@@ -29,6 +30,7 @@ export function TopBar() {
       </div>
 
       <div className="flex items-center gap-3">
+        <UpdateBadge />
         <PeriodFilter />
         <button
           className="flex h-9 w-9 items-center justify-center rounded-xl border border-line bg-card text-muted hover:bg-surface hover:text-ink"

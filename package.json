@@ -9,13 +9,15 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "dist": "npm run build && electron-builder --win",
+    "dist": "npm run clean && npm run build && electron-builder --win --publish never",
     "dist:dir": "npm run build && electron-builder --dir",
     "verificar": "npm run typecheck && npm run verificar:logica && npm run verificar:fiacao",
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
     "verificar:logica": "esbuild scripts/verificar-banco.ts --bundle --platform=node --format=esm --outfile=node_modules/.pluto-verificar.mjs --external:node:* --alias:electron=./scripts/stub-electron.ts --log-level=warning && node node_modules/.pluto-verificar.mjs",
     "verificar:fiacao": "node scripts/verificar-fiacao.mjs",
-    "release": "npm run verificar && npm run build && electron-builder --win --publish always"
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "dist:publish": "npm run clean && npm run build && electron-builder --win --publish always",
+    "lancar": "node scripts/lancar.mjs"
   },
   "dependencies": {
     "@fontsource/jetbrains-mono": "^5.3.0",
@@ -43,5 +45,8 @@
     "typescript": "^7.0.2",
     "vite": "^7.3.6"
   },
-  "productName": "Pluto"
+  "productName": "Pluto",
+  "engines": {
+    "node": ">=22"
+  }
 }

@@ -1,87 +1,99 @@
 # Publicar uma versão do Pluto
 
-O app checa o GitHub Releases toda vez que abre. Para uma versão nova chegar até ele,
-você faz três coisas: sobe o número, roda `npm run release`, e publica o rascunho.
-
-## Uma vez só, antes da primeira publicação
-
-**1. Criar o repositório.** Em <https://github.com/new>: nome `finances`, **público**, sem
-README nem .gitignore (o projeto já tem os dois). O nome e o dono precisam bater com o
-que está no `electron-builder.yml`:
-
-```yaml
-publish:
-  provider: github
-  owner: DonattoPieve
-  repo: finances
+```
+npm run lancar
 ```
 
-**2. Mandar o código.** Na pasta do projeto:
+É isso. O resto acontece sozinho.
+
+## O que esse comando faz
+
+1. **Confere antes de mexer em qualquer coisa.** Se você não estiver na `main`, se
+   houver arquivo não commitado, ou se a tag da próxima versão já existir neste PC, ele
+   para e explica. É mais fácil consertar agora do que despublicar um Release depois.
+2. **Roda a verificação inteira** — typecheck, 78 asserções de lógica e 16 checagens de
+   fiação. Falhou, não lança.
+3. **Sobe a versão** com `npm version`, que altera o `package.json` **e** o
+   `package-lock.json` (o número mora nos dois) e cria a tag anotada.
+4. **Empurra commit e tag juntos.**
+
+Variações:
 
 ```
-git remote add origin https://github.com/DonattoPieve/finances.git
-git push -u origin main
+npm run lancar            0.2.0 -> 0.2.1   (correção)
+npm run lancar minor      0.2.0 -> 0.3.0   (funcionalidade nova)
+npm run lancar major      0.2.0 -> 1.0.0   (quebra de compatibilidade)
+npm run lancar -- --seco  faz tudo menos o push
 ```
 
-**3. Criar o token que sobe os arquivos.** GitHub → Settings → Developer settings →
-Personal access tokens → **Fine-grained tokens** → Generate new token. Dê acesso só ao
-repositório `finances`, e em Permissions marque **Contents: Read and write**. Copie o token
-(ele só aparece uma vez).
+## O que acontece depois
 
-**4. Guardar o token na máquina**, para o electron-builder achar sozinho:
+A tag `v0.2.1` chegando no GitHub dispara o workflow em `.github/workflows/release.yml`,
+que roda numa máquina Windows do próprio GitHub:
 
-```
-setx GH_TOKEN "cole_o_token_aqui"
-```
+- confere que a tag combina com a versão do `package.json`;
+- `npm ci`;
+- roda a verificação de novo;
+- gera o instalador e publica o Release, já com o `latest.yml`.
 
-Feche e reabra o terminal depois disso. O token fica na sua máquina — nunca no
-repositório, nunca dentro do `.exe`.
+Acompanhe em <https://github.com/DonattoPieve/Finances/actions>. Leva alguns minutos.
 
-## A cada versão
+O Release sai **publicado**, não como rascunho. Se quiser escrever o que mudou, edite o
+Release depois — o texto aparece dentro do Pluto, em Configurações, na próxima verificação.
 
-**1. Suba o número** em `package.json`. É ele que o app compara:
+Seu PC não constrói nem sobe nada. Antes eram ~115 MB de upload a cada versão.
 
-```json
-"version": "0.3.0"
-```
+## Token
 
-Correção pequena mexe no terceiro número, funcionalidade nova no segundo.
+**Não precisa mais.** O workflow usa o `GITHUB_TOKEN` que o próprio GitHub fornece.
 
-**2. Rode:**
+Se você tinha criado o `GH_TOKEN` na máquina, ele só é usado agora pela saída manual
+abaixo. Pode apagar sem medo:
 
 ```
-npm run release
+setx GH_TOKEN ""
 ```
 
-Isso roda a bateria de verificação, compila, empacota e sobe para o GitHub. Se a
-verificação falhar, nada é publicado — de propósito.
+## Saída manual
 
-**3. Publique o rascunho.** O electron-builder cria o release como **draft**, e um draft é
-invisível para o app. Vá em <https://github.com/DonattoPieve/finances/releases>, escreva o
-que mudou (esse texto aparece dentro do Pluto, na tela de Configurações) e clique em
-**Publish release**.
+Se o Action estiver fora do ar e você precisar publicar do seu PC:
 
-Pronto. Na próxima vez que você abrir o Pluto em qualquer máquina, ele avisa.
+```
+npm run dist:publish
+```
+
+Aí sim precisa do `GH_TOKEN` no ambiente — token fine-grained com acesso ao repositório
+`Finances` e permissão **Contents: Read and write**, criado em
+<https://github.com/settings/personal-access-tokens/new>.
+
+Para só gerar o instalador localmente, sem publicar nada:
+
+```
+npm run dist
+```
 
 ## Como fica para quem usa
 
 1. Abre o Pluto — ele checa em silêncio, sem atrapalhar.
-2. Configurações mostra "Versão X disponível" com as suas notas.
+2. Aparece um aviso na barra do topo e o cartão em Configurações mostra a versão nova.
 3. Clica em **Baixar atualização**, vê a barra de progresso.
-4. Clica em **Reiniciar e instalar** — ou simplesmente fecha o app, e ela entra sozinha
-   no próximo fechamento.
+4. Clica em **Reiniciar e instalar** — ou fecha o app, e ela entra sozinha no próximo
+   fechamento.
 
 Os dados em `%APPDATA%\Pluto` não são tocados em nenhum momento disso.
 
 ## Detalhes que economizam dor de cabeça
 
-- **A versão 0.1.0 que você já instalou não tem o updater dentro dela.** Ela nunca vai se
-  atualizar sozinha. O pulo de 0.1.0 para 0.2.0 é na mão: `npm run release`, publique, e
-  rode o `Pluto-0.2.0-setup.exe` por cima. Da 0.2.0 em diante o botão funciona.
-- **Nunca reaproveite um número de versão.** Se você publicou 0.3.0 e achou um erro, a
-  correção é 0.3.1, não uma segunda 0.3.0.
-- **O `latest.yml` é obrigatório.** Ele sobe junto com o `.exe`; é o arquivo que o app lê
-  para saber qual é a versão mais nova. Não apague do release.
+- **A versão 0.1.0 nunca vai se atualizar sozinha** — ela foi construída antes do
+  updater existir. Da 0.2.0 em diante o ciclo funciona.
+- **Nunca edite a versão do `package.json` na mão.** É o que o `lancar` existe para
+  evitar: mexer só num dos dois arquivos deixa a tag fora de sincronia, e o Action recusa
+  o build.
+- **Se a tag ficou parada no PC** (o push disse "Everything up-to-date"), empurre com
+  `git push --follow-tags`. O `lancar` já cria commit e tag juntos justamente para isso
+  não acontecer.
+- **O `latest.yml` é obrigatório** no Release. Ele sobe junto com o `.exe`; é o arquivo
+  que o app lê para saber qual é a versão mais nova. Não apague.
 - **O Windows vai dizer "editor desconhecido"** na instalação, porque o app não é
   assinado. Certificado de code signing custa caro por ano e não vale para uso próprio.
 - **Repositório público.** O código fica visível; seus lançamentos, não — eles moram em

@@ -1,0 +1,64 @@
+name: release
+
+# Cria a versão nova quando você empurra uma tag `v1.2.3`.
+#
+# Por que tag e não todo push: build de instalador leva minutos e gera um
+# arquivo de ~115 MB. Amarrar isso a cada commit encheria o Releases de lixo e
+# faria o app instalado se atualizar para código pela metade. A tag é o gesto
+# explícito de "esta é uma versão".
+#
+# A tag tem que combinar com o `version` do package.json — é esse número que o
+# `latest.yml` publica e que o app instalado compara. Se estiverem diferentes, o
+# passo de conferência abaixo quebra o build antes de publicar nada.
+#
+# Para lançar:  npm run lancar
+# (confere, sobe a versão nos dois arquivos, cria a tag anotada e empurra.)
+
+on:
+  push:
+    tags: ['v*']
+  # Deixa disparar à mão pelo site do GitHub, para quando a tag já existe.
+  workflow_dispatch:
+
+jobs:
+  windows:
+    # SÓ em tag. Sem esta linha, um disparo manual em qualquer branch chegaria
+    # ao `dist:publish`, que publica com `--publish always` — Release do nada.
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
+    permissions:
+      # O electron-builder usa o GITHUB_TOKEN para criar o Release e subir o .exe.
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node 22: é o que o `node:sqlite` (usado pelo banco e pela bateria de
+      # verificação) precisa, e é o que roda na máquina do Donatto.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: A tag combina com o package.json?
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg=$(node -p "require('./package.json').version")
+          if [ "$tag" != "$pkg" ]; then
+            echo "Tag $GITHUB_REF_NAME nao combina com a versao $pkg do package.json."
+            echo "Use 'npm run lancar', que muda os dois de uma vez."
+            exit 1
+          fi
+
+      - run: npm ci
+
+      # A mesma bateria que roda na máquina dele: typecheck, 78 asserções de
+      # lógica contra um SQLite real e 16 checagens estáticas de fiação.
+      # Se falhar aqui, nada é publicado.
+      - name: Verificação
+        run: npm run verificar
+
+      - name: Instalador e publicação
+        run: npm run dist:publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

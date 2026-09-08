@@ -7,7 +7,11 @@ copyright: Copyright © 2026 Donatto Pieve
 publish:
   provider: github
   owner: DonattoPieve
-  repo: finances
+  repo: Finances
+  # Sai publicado, não como rascunho: a tag já foi o gesto explícito de "esta é
+  # uma versão". As notas podem ser escritas depois, editando o Release — o app
+  # lê elas na próxima verificação.
+  releaseType: release
 
 directories:
   buildResources: build
@@ -30,10 +34,10 @@ asar: true
 win:
   executableName: Pluto
   icon: build/icon.ico
+  # Só o instalador. O portátil dobrava o tamanho de cada release (~115 MB a mais)
+  # e o auto-update não usa: quem atualiza é o app instalado, pelo `latest.yml`.
   target:
     - target: nsis
-      arch: [x64]
-    - target: portable
       arch: [x64]
   artifactName: ${productName}-${version}-setup.${ext}
 
@@ -46,6 +50,3 @@ nsis:
   shortcutName: Pluto
   deleteAppDataOnUninstall: false
   artifactName: ${productName}-${version}-setup.${ext}
-
-portable:
-  artifactName: ${productName}-${version}-portable.${ext}
