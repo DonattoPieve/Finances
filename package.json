@@ -1,6 +1,6 @@
 {
   "name": "pluto",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Pluto — app desktop de finanças pessoais",
   "main": "./out/main/index.js",
   "author": "Donatto Pieve",
