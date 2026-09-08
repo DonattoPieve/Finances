@@ -36,6 +36,8 @@ export interface Movement {
   paidAmount: number | null
   paidAt: string | null
   deletedAt: string | null
+  /** Valor ainda é estimativa (conta variável que não chegou). Nunca em conta paga. */
+  amountEstimated: boolean
   /** Preenchido quando a movimentação foi gerada por uma regra recorrente. */
   recurrenceId: string | null
   /** Mês (yyyy-mm) que a regra recorrente gerou; junto com recurrenceId é único. */
@@ -93,6 +95,7 @@ export interface CreateMovementInput {
   categoryId: string
   day: string
   dueDate?: string | null
+  amountEstimated?: boolean
   recurrenceId?: string | null
   recurrenceMonth?: string | null
 }
@@ -151,17 +154,31 @@ export interface ImportResult {
   movements: number
 }
 
-/** Contas ainda não têm recorrência — o vencimento por mês precisa de desenho próprio. */
-export type RecurrenceType = 'receita' | 'despesa'
+export type RecurrenceType = MovementType
+
+/**
+ * Como o valor se comporta de um mês para o outro.
+ *
+ * 'fixo' — aluguel, assinatura: o mesmo número todo mês.
+ * 'variavel' — água, luz, internet: só se sabe quando a conta chega. A regra
+ *   gera a conta com uma estimativa (média dos últimos pagamentos), e o valor
+ *   real entra no pagamento. Só faz sentido com vencimento, então é exclusivo
+ *   de `type: 'conta'`.
+ */
+export type AmountKind = 'fixo' | 'variavel'
 
 export interface Recurrence {
   id: string
   type: RecurrenceType
   name: string
+  /** Em regra variável, é a semente da estimativa até existir histórico pago. */
   amount: number
+  amountKind: AmountKind
   categoryId: string
   /** 1 a 31. Meses mais curtos usam o último dia disponível. */
   dayOfMonth: number
+  /** Só em `type: 'conta'`: o dia do vencimento no mês. */
+  dueDay: number | null
   startMonth: string // yyyy-mm
   endMonth: string | null // yyyy-mm; null = sem data para terminar
   active: boolean
@@ -172,6 +189,8 @@ export interface Recurrence {
 export interface RecurrenceWithStats extends Recurrence {
   generatedCount: number
   lastGeneratedMonth: string | null
+  /** O que a próxima geração vai usar como valor. Em regra fixa, é o próprio `amount`. */
+  proximoValor: number
   /** Próximo mês que ainda será gerado, ou null se a regra está pausada/encerrada. */
   nextMonth: string | null
 }
@@ -180,8 +199,10 @@ export interface CreateRecurrenceInput {
   type: RecurrenceType
   name: string
   amount: number
+  amountKind?: AmountKind
   categoryId: string
   dayOfMonth: number
+  dueDay?: number | null
   startMonth: string
   endMonth?: string | null
 }

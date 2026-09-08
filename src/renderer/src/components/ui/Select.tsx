@@ -22,7 +22,19 @@ export function Select({ value, onValueChange, options, placeholder, label, clas
   return (
     <label className="flex flex-col gap-1.5">
       {label && <span className="text-xs font-medium text-muted">{label}</span>}
-      <RadixSelect.Root value={value} onValueChange={onValueChange}>
+      {/*
+        O Radix chega a emitir `onValueChange('')` enquanto registra os itens, o que
+        apagava a categoria que o formulário tinha acabado de escolher sozinho — o
+        campo parecia preenchido e o envio reclamava "Selecione uma categoria".
+        Nenhuma lista daqui tem opção vazia, então string vazia nunca é escolha do
+        usuário: ignorar é seguro e deixa o estado do React ser o dono do valor.
+      */}
+      <RadixSelect.Root
+        value={value}
+        onValueChange={(escolhido) => {
+          if (escolhido) onValueChange(escolhido)
+        }}
+      >
         <RadixSelect.Trigger
           className={clsx(
             'flex items-center justify-between gap-2 rounded-xl border border-line bg-card px-3 py-2 text-sm text-ink outline-none transition-colors hover:bg-surface data-[placeholder]:text-faint focus:border-accent focus:ring-1 focus:ring-accent',

@@ -1,7 +1,7 @@
 import { Dialog } from '../ui/Dialog'
 import { MovementForm, type MovementFormValues } from './MovementForm'
 import { useAppStore } from '../../store/useAppStore'
-import type { MovementType, RecurrenceType } from '@shared/types'
+import type { MovementType } from '@shared/types'
 
 const TYPE_LABELS: Record<MovementType, string> = {
   receita: 'Receita',
@@ -21,14 +21,19 @@ export function NewMovementDialog() {
   const bumpMovementsVersion = useAppStore((state) => state.bumpMovementsVersion)
 
   async function handleSubmit(values: MovementFormValues): Promise<void> {
-    if (values.repeatMonthly && type !== 'conta') {
+    if (values.repeatMonthly) {
+      const ehConta = type === 'conta'
+      // A conta pertence ao mês em que vence, não ao dia em que foi cadastrada.
+      const referencia = ehConta && values.dueDate ? values.dueDate : values.day
       await window.pluto.recurrences.create({
-        type: type as RecurrenceType,
+        type,
         name: values.name,
         amount: values.amount,
+        amountKind: values.amountKind,
         categoryId: values.categoryId,
-        dayOfMonth: Number(values.day.slice(8, 10)),
-        startMonth: values.day.slice(0, 7),
+        dayOfMonth: Number(referencia.slice(8, 10)),
+        dueDay: ehConta && values.dueDate ? Number(values.dueDate.slice(8, 10)) : null,
+        startMonth: referencia.slice(0, 7),
         endMonth: values.endMonth
       })
     } else {

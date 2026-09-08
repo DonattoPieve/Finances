@@ -73,9 +73,9 @@ async function main(): Promise<void> {
       assert.equal(categories.list('despesa').length, 9)
       assert.equal(categories.list('receita').length, 2)
     })
-    await t('user_version chega em 2', () => {
+    await t('user_version chega em 3', () => {
       const v = db.prepare('PRAGMA user_version').get() as { user_version: number }
-      assert.equal(v.user_version, 2)
+      assert.equal(v.user_version, 3)
     })
     await t('rodar migração e seed de novo não duplica', () => {
       runMigrations(db)
@@ -419,6 +419,100 @@ async function main(): Promise<void> {
     void catDespesa
   }
 
+  secao('Contas recorrentes')
+  {
+    const { movements, recurrences, recurrenceService, movementService, catDespesa, catReceita } =
+      novoBanco()
+    const agora = new Date(2026, 8, 15) // setembro/2026
+
+    const luz = recurrenceService.create({
+      type: 'conta',
+      name: 'Luz',
+      amount: 180,
+      amountKind: 'variavel',
+      categoryId: catDespesa.id,
+      dayOfMonth: 10,
+      dueDay: 10,
+      startMonth: '2026-07'
+    })
+    recurrenceService.materialize(luz, agora)
+
+    await t('gera conta pendente por mês, vencendo no dia da regra', () => {
+      const geradas = movements.list({ sort: 'oldest' }).filter((m) => m.recurrenceId === luz.id)
+      assert.deepEqual(geradas.map((m) => m.dueDate), ['2026-07-10', '2026-08-10', '2026-09-10'])
+      assert.equal(geradas.every((m) => m.type === 'conta' && m.billStatus === 'pending'), true)
+    })
+    await t('a conta é lançada no primeiro dia do mês, não no dia em que o app abriu', () => {
+      const geradas = movements.list({ sort: 'oldest' }).filter((m) => m.recurrenceId === luz.id)
+      assert.deepEqual(geradas.map((m) => m.day), ['2026-07-01', '2026-08-01', '2026-09-01'])
+    })
+    await t('valor variável nasce como estimativa, usando a semente', () => {
+      const geradas = movements.list().filter((m) => m.recurrenceId === luz.id)
+      assert.equal(geradas.every((m) => m.amountEstimated), true)
+      assert.equal(geradas.every((m) => m.amount === 180), true)
+    })
+    await t('conta pendente estimada entra no total de pendentes', () =>
+      assert.equal(movements.getPendingSummary().total, 540)
+    )
+    await t('pagar ensina a estimativa do próximo mês', () => {
+      const geradas = movements.list({ sort: 'oldest' }).filter((m) => m.recurrenceId === luz.id)
+      movementService.payBill(geradas[0].id, 200)
+      movementService.payBill(geradas[1].id, 260)
+      // média de 200 e 260 = 230, e não mais a semente de 180
+      assert.equal(recurrenceService.valorDoProximoLancamento(recurrences.get(luz.id)!), 230)
+    })
+    await t('a estimativa arredonda para centavos', () => {
+      const geradas = movements.list({ sort: 'oldest' }).filter((m) => m.recurrenceId === luz.id)
+      movementService.payBill(geradas[2].id, 100.01)
+      // (200 + 260 + 100.01) / 3 = 186.67
+      assert.equal(recurrenceService.valorDoProximoLancamento(recurrences.get(luz.id)!), 186.67)
+    })
+    await t('o mês seguinte já nasce com a estimativa aprendida', () => {
+      recurrenceService.materialize(recurrences.get(luz.id)!, new Date(2026, 9, 15))
+      const outubro = movements.list().find((m) => m.recurrenceMonth === '2026-10')!
+      assert.equal(outubro.amount, 186.67)
+      assert.equal(outubro.amountEstimated, true)
+    })
+    await t('conta de valor fixo não é marcada como estimativa', () => {
+      const c = novoBanco()
+      const net = c.recurrenceService.create({
+        type: 'conta', name: 'Internet', amount: 99.9, amountKind: 'fixo',
+        categoryId: c.catDespesa.id, dayOfMonth: 5, dueDay: 5, startMonth: '2026-09'
+      })
+      c.recurrenceService.materialize(net, agora)
+      const gerada = c.movements.list().find((m) => m.recurrenceId === net.id)!
+      assert.equal(gerada.amountEstimated, false)
+      assert.equal(gerada.amount, 99.9)
+    })
+    await t('conta recorrente sem dia de vencimento é recusada', () =>
+      assert.throws(
+        () => recurrenceService.create({
+          type: 'conta', name: 'x', amount: 10, categoryId: catDespesa.id,
+          dayOfMonth: 5, startMonth: '2026-09'
+        }),
+        /vencimento/
+      )
+    )
+    await t('valor variável só existe em conta', () =>
+      assert.throws(
+        () => recurrenceService.create({
+          type: 'despesa', name: 'x', amount: 10, amountKind: 'variavel',
+          categoryId: catDespesa.id, dayOfMonth: 5, startMonth: '2026-09'
+        }),
+        /variável/
+      )
+    )
+    await t('conta recorrente exige categoria de despesa', () =>
+      assert.throws(
+        () => recurrenceService.create({
+          type: 'conta', name: 'x', amount: 10, categoryId: catReceita.id,
+          dayOfMonth: 5, dueDay: 5, startMonth: '2026-09'
+        }),
+        /categoria de conta/
+      )
+    )
+  }
+
   secao('Categorias')
   {
     const { categories, movements, movementService, catDespesa, catReceita } = novoBanco()
@@ -479,7 +573,7 @@ async function main(): Promise<void> {
     await t('arquivo tem as três coleções e o tipo da categoria', () => {
       const json = JSON.parse(fs.readFileSync(stubState.backupPath, 'utf-8'))
       assert.equal(json.app, 'pluto')
-      assert.equal(json.format, 2)
+      assert.equal(json.format, 3)
       assert.equal(json.recurrences.length, 1)
       assert.notEqual(json.categories[0].kind, undefined)
     })
@@ -502,6 +596,21 @@ async function main(): Promise<void> {
     await t('vínculo da recorrência sobrevive ao backup', () =>
       assert.notEqual(destino.movements.list().find((m) => m.recurrenceId !== null), undefined)
     )
+    await t('backup preserva conta recorrente variável', async () => {
+      const origem = novoBanco()
+      origem.recurrenceService.create({
+        type: 'conta', name: 'Água', amount: 90, amountKind: 'variavel',
+        categoryId: origem.catDespesa.id, dayOfMonth: 20, dueDay: 20, startMonth: '2026-09'
+      })
+      await origem.backup.export()
+      const alvo = novoBanco()
+      await alvo.backup.import()
+      const regra = alvo.recurrences.list()[0]
+      assert.equal(regra.type, 'conta')
+      assert.equal(regra.amountKind, 'variavel')
+      assert.equal(regra.dueDay, 20)
+      assert.equal(alvo.movements.list()[0].amountEstimated, true)
+    })
     await t('cancelar a confirmação não altera nada', async () => {
       stubState.confirmResponse = 0
       const outro = novoBanco()

@@ -7,7 +7,12 @@ import { CategoryIconBadge } from '../ui/CategoryIconBadge'
 import { Button } from '../ui/Button'
 import { todayIsoDate } from '../../lib/format'
 import { useAppStore } from '../../store/useAppStore'
-import { CATEGORY_KIND_BY_MOVEMENT_TYPE, type Category, type MovementType } from '@shared/types'
+import {
+  CATEGORY_KIND_BY_MOVEMENT_TYPE,
+  type AmountKind,
+  type Category,
+  type MovementType
+} from '@shared/types'
 
 export interface MovementFormValues {
   name: string
@@ -17,6 +22,7 @@ export interface MovementFormValues {
   dueDate?: string | null
   /** Só o diálogo de criação usa: transforma o lançamento em uma regra mensal. */
   repeatMonthly: boolean
+  amountKind: AmountKind
   endMonth: string | null
 }
 
@@ -70,8 +76,8 @@ const TYPE_COPY: Record<MovementType, TypeCopy> = {
     amountLabel: 'Valor (R$)',
     dayLabel: 'Lançada em',
     emptyCategories: 'Você ainda não tem categorias de despesa.',
-    repeatLabel: '',
-    repeatHint: () => ''
+    repeatLabel: 'Chega todo mês',
+    repeatHint: (day) => `Vamos lançar como pendente todo mês, vencendo dia ${day}.`
   }
 }
 
@@ -86,7 +92,7 @@ export function MovementForm({
   const setView = useAppStore((state) => state.setView)
   const copy = TYPE_COPY[type]
   const categoryKind = CATEGORY_KIND_BY_MOVEMENT_TYPE[type]
-  const canRepeat = allowRecurrence && type !== 'conta'
+  const canRepeat = allowRecurrence
 
   const [categories, setCategories] = useState<Category[] | null>(null)
   const [name, setName] = useState(initial?.name ?? '')
@@ -95,6 +101,7 @@ export function MovementForm({
   const [day, setDay] = useState(initial?.day ?? todayIsoDate())
   const [dueDate, setDueDate] = useState(initial?.dueDate ?? '')
   const [repeatMonthly, setRepeatMonthly] = useState(false)
+  const [amountKind, setAmountKind] = useState<AmountKind>('fixo')
   const [endMonth, setEndMonth] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -111,7 +118,9 @@ export function MovementForm({
     }
   }, [categoryKind])
 
-  const dayOfMonth = Number(day.slice(8, 10)) || 1
+  // Em conta, o dia que importa é o do vencimento — é ele que se repete.
+  const dayOfMonth =
+    type === 'conta' ? Number((dueDate ?? '').slice(8, 10)) || 1 : Number(day.slice(8, 10)) || 1
 
   async function handleSubmit(event: FormEvent): Promise<void> {
     event.preventDefault()
@@ -148,6 +157,7 @@ export function MovementForm({
         day,
         dueDate: type === 'conta' ? dueDate : null,
         repeatMonthly: canRepeat && repeatMonthly,
+        amountKind: type === 'conta' && repeatMonthly ? amountKind : 'fixo',
         endMonth: canRepeat && repeatMonthly && endMonth ? endMonth : null
       })
     } catch (err) {
@@ -248,6 +258,26 @@ export function MovementForm({
               <p className="text-xs leading-relaxed text-muted">
                 {copy.repeatHint(dayOfMonth)} Meses mais curtos usam o último dia disponível.
               </p>
+
+              {type === 'conta' && (
+                <label className="flex cursor-pointer items-start gap-2.5 text-sm text-ink">
+                  <input
+                    type="checkbox"
+                    checked={amountKind === 'variavel'}
+                    onChange={(event) =>
+                      setAmountKind(event.target.checked ? 'variavel' : 'fixo')
+                    }
+                    className="mt-0.5 h-4 w-4 accent-[var(--color-accent)]"
+                  />
+                  <span>
+                    O valor muda todo mês
+                    <span className="mt-0.5 block text-xs leading-relaxed text-muted">
+                      Água, luz, internet. A conta nasce com uma estimativa a partir do que
+                      você já pagou, e o valor de verdade entra quando você marcar como paga.
+                    </span>
+                  </span>
+                </label>
+              )}
               <Input
                 label="Até (opcional)"
                 type="month"

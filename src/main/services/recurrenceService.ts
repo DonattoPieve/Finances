@@ -1,8 +1,9 @@
-import type {
-  CreateRecurrenceInput,
-  Recurrence,
-  RecurrenceWithStats,
-  UpdateRecurrenceInput
+import {
+  CATEGORY_KIND_BY_MOVEMENT_TYPE,
+  type CreateRecurrenceInput,
+  type Recurrence,
+  type RecurrenceWithStats,
+  type UpdateRecurrenceInput
 } from '../../shared/types'
 import type { RecurrencesRepository } from '../repositories/recurrencesRepository'
 import type { MovementsRepository } from '../repositories/movementsRepository'
@@ -42,6 +43,9 @@ export function monthsBetween(from: string, to: string): string[] {
   return months
 }
 
+/** Quantos pagamentos passados entram na média de uma conta variável. */
+export const MESES_NA_ESTIMATIVA = 3
+
 export class RecurrenceService {
   constructor(
     private recurrences: RecurrencesRepository,
@@ -49,18 +53,34 @@ export class RecurrenceService {
     private categories: CategoriesRepository
   ) {}
 
-  private assertValid(input: CreateRecurrenceInput | UpdateRecurrenceInput): void {
+  private assertValid(
+    input: CreateRecurrenceInput | UpdateRecurrenceInput,
+    type: Recurrence['type']
+  ): void {
     if (input.amount !== undefined && input.amount <= 0) {
       throw new Error('O valor deve ser maior que zero')
     }
     if (input.dayOfMonth !== undefined && (input.dayOfMonth < 1 || input.dayOfMonth > 31)) {
       throw new Error('O dia do mês deve estar entre 1 e 31')
     }
+    if (input.dueDay !== undefined && input.dueDay !== null) {
+      if (input.dueDay < 1 || input.dueDay > 31) {
+        throw new Error('O dia do vencimento deve estar entre 1 e 31')
+      }
+    }
+    if (type === 'conta' && 'type' in input && !input.dueDay) {
+      throw new Error('Conta recorrente exige um dia de vencimento')
+    }
+    // Valor variável só existe com vencimento: é o vencimento que dá o gancho para
+    // avisar antes de a conta chegar. Sem ele, "variável" seria só um valor errado.
+    if (input.amountKind === 'variavel' && type !== 'conta') {
+      throw new Error('Só conta pode ter valor variável')
+    }
     if (input.categoryId) {
       const category = this.categories.get(input.categoryId)
       if (!category) throw new Error('Categoria inválida')
-      if ('type' in input && input.type && category.kind !== input.type) {
-        throw new Error(`Essa categoria não é de ${input.type}`)
+      if (category.kind !== CATEGORY_KIND_BY_MOVEMENT_TYPE[type]) {
+        throw new Error(`"${category.name}" não é uma categoria de ${type}`)
       }
     }
     if (input.startMonth && !/^\d{4}-\d{2}$/.test(input.startMonth)) {
@@ -72,6 +92,23 @@ export class RecurrenceService {
         throw new Error('O mês final não pode ser antes do inicial')
       }
     }
+  }
+
+  /**
+   * O valor que a próxima geração vai usar.
+   *
+   * Em regra fixa é o próprio valor. Em conta variável é a média dos últimos
+   * pagamentos REAIS — cada mês pago melhora a estimativa do mês seguinte. Sem
+   * histórico ainda, cai no valor que o usuário deu ao criar a regra.
+   */
+  valorDoProximoLancamento(recurrence: Recurrence): number {
+    if (recurrence.amountKind !== 'variavel') return recurrence.amount
+
+    const pagos = this.movements.getLastPaidAmounts(recurrence.id, MESES_NA_ESTIMATIVA)
+    if (pagos.length === 0) return recurrence.amount
+
+    const media = pagos.reduce((soma, valor) => soma + valor, 0) / pagos.length
+    return Math.round(media * 100) / 100
   }
 
   /**
@@ -90,12 +127,21 @@ export class RecurrenceService {
     let created = 0
     for (const month of monthsBetween(recurrence.startMonth, limit)) {
       if (this.movements.hasRecurrenceMonth(recurrence.id, month)) continue
+
+      const ehConta = recurrence.type === 'conta'
       this.movements.create({
         type: recurrence.type,
         name: recurrence.name,
-        amount: recurrence.amount,
+        // Calculado por mês, e não uma vez só: a estimativa da conta variável
+        // muda conforme os meses anteriores vão sendo pagos.
+        amount: this.valorDoProximoLancamento(recurrence),
         categoryId: recurrence.categoryId,
-        day: clampDayToMonth(month, recurrence.dayOfMonth),
+        // A conta é lançada no começo do mês e vence no dia da regra. Data de
+        // lançamento fixa deixa a geração determinística: não importa se o app
+        // foi aberto no dia 2 ou no dia 27.
+        day: ehConta ? `${month}-01` : clampDayToMonth(month, recurrence.dayOfMonth),
+        dueDate: ehConta ? clampDayToMonth(month, recurrence.dueDay ?? 1) : null,
+        amountEstimated: recurrence.amountKind === 'variavel',
         recurrenceId: recurrence.id,
         recurrenceMonth: month
       })
@@ -112,7 +158,7 @@ export class RecurrenceService {
   }
 
   create(input: CreateRecurrenceInput): Recurrence {
-    this.assertValid(input)
+    this.assertValid(input, input.type)
     const recurrence = this.recurrences.create(input)
     this.materialize(recurrence)
     return recurrence
@@ -120,7 +166,9 @@ export class RecurrenceService {
 
   /** Alterações valem para os meses que ainda serão gerados; o que já foi lançado não muda. */
   update(id: string, input: UpdateRecurrenceInput): Recurrence {
-    this.assertValid(input)
+    const atual = this.recurrences.get(id)
+    if (!atual) throw new Error(`Regra ${id} não encontrada`)
+    this.assertValid(input, atual.type)
     const recurrence = this.recurrences.update(id, input)
     this.materialize(recurrence)
     return recurrence
@@ -145,6 +193,7 @@ export class RecurrenceService {
         ...recurrence,
         generatedCount: stats.count,
         lastGeneratedMonth: stats.lastMonth,
+        proximoValor: this.valorDoProximoLancamento(recurrence),
         nextMonth: !recurrence.active || ended ? null : upcoming
       }
     })

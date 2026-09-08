@@ -1,7 +1,7 @@
 import { CalendarClock, ArrowRight } from 'lucide-react'
 import { Card, CardTitle } from '../ui/Card'
 import { Button } from '../ui/Button'
-import { formatCurrency, formatDateBR } from '../../lib/format'
+import { formatCurrency, formatDateBR, formatEstimatedCurrency } from '../../lib/format'
 import { DUE_STATUS_META, formatRelativeDueText } from '../../lib/dueStatus'
 import { useAppStore } from '../../store/useAppStore'
 import type { MovementWithDueStatus } from '@shared/types'
@@ -91,7 +91,7 @@ export function PendingPreview({
                       : 'text-ink'
                   )}
                 >
-                  {formatCurrency(item.amount)}
+                  {formatEstimatedCurrency(item.amount, item.amountEstimated)}
                 </span>
                 <Button
                   variant="secondary"

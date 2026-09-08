@@ -4,6 +4,7 @@ import { app, dialog, shell, BrowserWindow } from 'electron'
 import type { DatabaseSync } from 'node:sqlite'
 import { localIsoDate } from './period'
 import type {
+  AmountKind,
   BackupFile,
   Category,
   CategoryKind,
@@ -15,7 +16,7 @@ import type {
   RecurrenceType
 } from '../../shared/types'
 
-const BACKUP_FORMAT = 2
+const BACKUP_FORMAT = 3
 const MOVEMENT_TYPES: MovementType[] = ['receita', 'despesa', 'conta']
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -94,6 +95,7 @@ function parseMovement(raw: unknown, index: number, categoryIds: Set<string>): M
     paidAmount: asNullableNumber(raw.paidAmount, `movements[${index}].paidAmount`),
     paidAt: asNullableString(raw.paidAt, `movements[${index}].paidAt`),
     deletedAt: asNullableString(raw.deletedAt, `movements[${index}].deletedAt`),
+    amountEstimated: raw.amountEstimated === true,
     recurrenceId: asNullableString(raw.recurrenceId, `movements[${index}].recurrenceId`),
     recurrenceMonth: asNullableString(raw.recurrenceMonth, `movements[${index}].recurrenceMonth`),
     createdAt: asString(raw.createdAt, `movements[${index}].createdAt`),
@@ -105,7 +107,7 @@ function parseRecurrence(raw: unknown, index: number, categoryIds: Set<string>):
   if (!isRecord(raw)) throw new Error(`Regra recorrente #${index + 1} inválida no backup`)
 
   const type = raw.type
-  if (type !== 'receita' && type !== 'despesa') {
+  if (type !== 'receita' && type !== 'despesa' && type !== 'conta') {
     throw new Error(`Tipo inválido na regra recorrente #${index + 1}`)
   }
 
@@ -124,8 +126,11 @@ function parseRecurrence(raw: unknown, index: number, categoryIds: Set<string>):
     type: type as RecurrenceType,
     name: asString(raw.name, `recurrences[${index}].name`),
     amount: asNumber(raw.amount, `recurrences[${index}].amount`),
+    // Backups no formato 2 não tinham conta recorrente: tudo era fixo.
+    amountKind: (raw.amountKind === 'variavel' ? 'variavel' : 'fixo') as AmountKind,
     categoryId,
     dayOfMonth,
+    dueDay: raw.dueDay === undefined || raw.dueDay === null ? null : asNumber(raw.dueDay, `recurrences[${index}].dueDay`),
     startMonth: asString(raw.startMonth, `recurrences[${index}].startMonth`),
     endMonth: asNullableString(raw.endMonth, `recurrences[${index}].endMonth`),
     active: raw.active !== false,
@@ -215,6 +220,7 @@ export class BackupService {
       paidAmount: (row.paid_amount ?? null) as number | null,
       paidAt: (row.paid_at ?? null) as string | null,
       deletedAt: (row.deleted_at ?? null) as string | null,
+      amountEstimated: (row.amount_estimated as unknown as number) === 1,
       recurrenceId: (row.recurrence_id ?? null) as string | null,
       recurrenceMonth: (row.recurrence_month ?? null) as string | null,
       createdAt: row.created_at as string,
@@ -227,7 +233,9 @@ export class BackupService {
       name: row.name as string,
       amount: row.amount as unknown as number,
       categoryId: row.category_id as string,
+      amountKind: row.amount_kind as unknown as AmountKind,
       dayOfMonth: row.day_of_month as unknown as number,
+      dueDay: (row.due_day ?? null) as number | null,
       startMonth: row.start_month as string,
       endMonth: (row.end_month ?? null) as string | null,
       active: (row.active as unknown as number) === 1,
@@ -320,21 +328,21 @@ export class BackupService {
     )
     const insertRecurrence = this.db.prepare(
       `INSERT INTO recurrences
-         (id, type, name, amount, category_id, day_of_month, start_month, end_month,
-          active, created_at, updated_at)
+         (id, type, name, amount, amount_kind, category_id, day_of_month, due_day,
+          start_month, end_month, active, created_at, updated_at)
        VALUES
-         (@id, @type, @name, @amount, @categoryId, @dayOfMonth, @startMonth, @endMonth,
-          @active, @createdAt, @updatedAt)`
+         (@id, @type, @name, @amount, @amountKind, @categoryId, @dayOfMonth, @dueDay,
+          @startMonth, @endMonth, @active, @createdAt, @updatedAt)`
     )
     const insertMovement = this.db.prepare(
       `INSERT INTO movements (
          id, type, name, amount, category_id, day, due_date, bill_status,
-         paid_amount, paid_at, deleted_at, recurrence_id, recurrence_month,
-         created_at, updated_at
+         paid_amount, paid_at, deleted_at, amount_estimated,
+         recurrence_id, recurrence_month, created_at, updated_at
        ) VALUES (
          @id, @type, @name, @amount, @categoryId, @day, @dueDate, @billStatus,
-         @paidAmount, @paidAt, @deletedAt, @recurrenceId, @recurrenceMonth,
-         @createdAt, @updatedAt
+         @paidAmount, @paidAt, @deletedAt, @amountEstimated,
+         @recurrenceId, @recurrenceMonth, @createdAt, @updatedAt
        )`
     )
 
@@ -362,8 +370,10 @@ export class BackupService {
           type: recurrence.type,
           name: recurrence.name,
           amount: recurrence.amount,
+          amountKind: recurrence.amountKind,
           categoryId: recurrence.categoryId,
           dayOfMonth: recurrence.dayOfMonth,
+          dueDay: recurrence.dueDay,
           startMonth: recurrence.startMonth,
           endMonth: recurrence.endMonth,
           active: recurrence.active ? 1 : 0,
@@ -385,6 +395,7 @@ export class BackupService {
           paidAmount: movement.paidAmount,
           paidAt: movement.paidAt,
           deletedAt: movement.deletedAt,
+          amountEstimated: movement.amountEstimated ? 1 : 0,
           recurrenceId: movement.recurrenceId,
           recurrenceMonth: movement.recurrenceMonth,
           createdAt: movement.createdAt,

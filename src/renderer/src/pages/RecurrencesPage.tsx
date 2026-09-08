@@ -9,7 +9,7 @@ import { Select } from '../components/ui/Select'
 import { CategoryIconBadge } from '../components/ui/CategoryIconBadge'
 import { formatCurrency, formatMonthBR } from '../lib/format'
 import { useAppStore } from '../store/useAppStore'
-import type { Category, RecurrenceWithStats } from '@shared/types'
+import { CATEGORY_KIND_BY_MOVEMENT_TYPE, type Category, type RecurrenceWithStats } from '@shared/types'
 
 interface EditFormProps {
   recurrence: RecurrenceWithStats
@@ -28,7 +28,7 @@ function RecurrenceEditForm({ recurrence, onSaved, onCancel }: EditFormProps) {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    window.pluto.categories.list(recurrence.type).then(setCategories)
+    window.pluto.categories.list(CATEGORY_KIND_BY_MOVEMENT_TYPE[recurrence.type]).then(setCategories)
   }, [recurrence.type])
 
   async function handleSubmit(event: FormEvent): Promise<void> {
@@ -206,7 +206,11 @@ export function RecurrencesPage() {
                     )}
                   </div>
                   <p className="mt-0.5 text-xs text-muted">
-                    Todo dia {recurrence.dayOfMonth} · {category?.name ?? 'Sem categoria'} · desde{' '}
+                    {recurrence.type === 'conta'
+                      ? `Vence todo dia ${recurrence.dueDay}`
+                      : `Todo dia ${recurrence.dayOfMonth}`}
+                    {recurrence.amountKind === 'variavel' ? ' · valor variável' : ''} ·{' '}
+                    {category?.name ?? 'Sem categoria'} · desde{' '}
                     {formatMonthBR(recurrence.startMonth)}
                     {recurrence.endMonth ? ` até ${formatMonthBR(recurrence.endMonth)}` : ''}
                   </p>
@@ -229,7 +233,10 @@ export function RecurrencesPage() {
                   )}
                 >
                   {isIncome ? '+ ' : '- '}
-                  {formatCurrency(recurrence.amount)}
+                  {formatCurrency(recurrence.proximoValor)}
+                  {recurrence.amountKind === 'variavel' && (
+                    <span className="ml-1 text-[10px] font-normal text-faint">estimado</span>
+                  )}
                 </p>
 
                 <div className="flex shrink-0 items-center gap-1">

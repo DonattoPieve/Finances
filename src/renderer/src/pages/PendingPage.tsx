@@ -4,7 +4,7 @@ import clsx from 'clsx'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { CategoryIconBadge } from '../components/ui/CategoryIconBadge'
-import { formatCurrency, formatDateBR } from '../lib/format'
+import { formatCurrency, formatDateBR, formatEstimatedCurrency } from '../lib/format'
 import { DUE_STATUS_META, formatRelativeDueText } from '../lib/dueStatus'
 import { useAppStore } from '../store/useAppStore'
 import type { Category, DueStatus, MovementWithDueStatus } from '@shared/types'
@@ -121,7 +121,7 @@ export function PendingPage() {
                         </span>
                       )}
                       <span className="shrink-0 text-sm font-medium text-ink">
-                        {formatCurrency(item.amount)}
+                        {formatEstimatedCurrency(item.amount, item.amountEstimated)}
                       </span>
                       <Button
                         variant="secondary"

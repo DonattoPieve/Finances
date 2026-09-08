@@ -71,6 +71,52 @@ const MIGRATIONS: Migration[] = [
       db.exec(`CREATE INDEX IF NOT EXISTS idx_recurrences_active ON recurrences(active)`)
     }
   }
+,
+  {
+    version: 3,
+    name: 'contas recorrentes, com valor fixo ou variável',
+    up(db) {
+      // A coluna `type` tinha CHECK(type IN ('receita','despesa')) e o SQLite não
+      // altera CHECK: a tabela precisa ser refeita. Nada aponta para `recurrences`
+      // por chave estrangeira, então dropar e recriar é seguro.
+      db.exec(`
+        CREATE TABLE recurrences_novo (
+          id TEXT PRIMARY KEY,
+          type TEXT NOT NULL CHECK(type IN ('receita','despesa','conta')),
+          name TEXT NOT NULL,
+          amount REAL NOT NULL,
+          -- 'fixo': o valor se repete igual todo mês (aluguel, assinatura).
+          -- 'variavel': só se sabe quando a conta chega (água, luz, internet).
+          --             a coluna amount vira a semente da estimativa.
+          amount_kind TEXT NOT NULL DEFAULT 'fixo' CHECK(amount_kind IN ('fixo','variavel')),
+          category_id TEXT NOT NULL REFERENCES categories(id),
+          day_of_month INTEGER NOT NULL,
+          -- Só para type='conta': o dia do vencimento dentro do mês.
+          due_day INTEGER,
+          start_month TEXT NOT NULL,
+          end_month TEXT,
+          active INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )
+      `)
+      db.exec(`
+        INSERT INTO recurrences_novo
+          (id, type, name, amount, amount_kind, category_id, day_of_month, due_day,
+           start_month, end_month, active, created_at, updated_at)
+        SELECT id, type, name, amount, 'fixo', category_id, day_of_month, NULL,
+               start_month, end_month, active, created_at, updated_at
+        FROM recurrences
+      `)
+      db.exec('DROP TABLE recurrences')
+      db.exec('ALTER TABLE recurrences_novo RENAME TO recurrences')
+      db.exec('CREATE INDEX IF NOT EXISTS idx_recurrences_active ON recurrences(active)')
+
+      // Marca a movimentação cujo valor ainda é chute, para a tela não apresentar
+      // estimativa como se fosse fato.
+      db.exec('ALTER TABLE movements ADD COLUMN amount_estimated INTEGER NOT NULL DEFAULT 0')
+    }
+  }
 ]
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version

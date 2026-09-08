@@ -20,6 +20,7 @@ interface MovementRow {
   paid_amount: number | null
   paid_at: string | null
   deleted_at: string | null
+  amount_estimated: number
   recurrence_id: string | null
   recurrence_month: string | null
   created_at: string
@@ -39,6 +40,7 @@ function toMovement(row: MovementRow): Movement {
     paidAmount: row.paid_amount,
     paidAt: row.paid_at,
     deletedAt: row.deleted_at,
+    amountEstimated: row.amount_estimated === 1,
     recurrenceId: row.recurrence_id,
     recurrenceMonth: row.recurrence_month,
     createdAt: row.created_at,
@@ -248,12 +250,12 @@ export class MovementsRepository {
       .prepare(
         `INSERT INTO movements
            (id, type, name, amount, category_id, day, due_date, bill_status,
-            paid_amount, paid_at, deleted_at, recurrence_id, recurrence_month,
-            created_at, updated_at)
+            paid_amount, paid_at, deleted_at, amount_estimated,
+            recurrence_id, recurrence_month, created_at, updated_at)
          VALUES
            (@id, @type, @name, @amount, @categoryId, @day, @dueDate, @billStatus,
-            NULL, NULL, NULL, @recurrenceId, @recurrenceMonth,
-            @createdAt, @updatedAt)`
+            NULL, NULL, NULL, @amountEstimated,
+            @recurrenceId, @recurrenceMonth, @createdAt, @updatedAt)`
       )
       .run({
         id,
@@ -264,6 +266,7 @@ export class MovementsRepository {
         day: input.day,
         dueDate: input.type === 'conta' ? input.dueDate ?? null : null,
         billStatus: input.type === 'conta' ? 'pending' : null,
+        amountEstimated: input.amountEstimated ? 1 : 0,
         recurrenceId: input.recurrenceId ?? null,
         recurrenceMonth: input.recurrenceMonth ?? null,
         createdAt: now,
@@ -351,6 +354,24 @@ export class MovementsRepository {
       )
       .get(recurrenceId, month) as { count: number }
     return row.count > 0
+  }
+
+  /**
+   * Os últimos valores realmente pagos dessa regra, do mais recente para o mais
+   * antigo. É a matéria-prima da estimativa de conta variável: `paid_amount` é o
+   * que saiu de fato, e só ele — valor previsto que nunca foi pago não ensina nada.
+   */
+  getLastPaidAmounts(recurrenceId: string, limit: number): number[] {
+    const rows = this.db
+      .prepare(
+        `SELECT COALESCE(paid_amount, amount) AS valor
+         FROM movements
+         WHERE recurrence_id = ? AND bill_status = 'paid' AND deleted_at IS NULL
+         ORDER BY recurrence_month DESC
+         LIMIT ?`
+      )
+      .all(recurrenceId, limit) as unknown as { valor: number }[]
+    return rows.map((r) => r.valor)
   }
 
   getRecurrenceStats(recurrenceId: string): { count: number; lastMonth: string | null } {

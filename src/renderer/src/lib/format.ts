@@ -33,6 +33,14 @@ export function formatDateShortBR(isoDate: string): string {
   return `${day}/${month}`
 }
 
+/**
+ * Valor de conta variável que ainda não chegou. O til não é enfeite: sem ele a
+ * tela apresentaria um chute com a mesma cara de um valor real.
+ */
+export function formatEstimatedCurrency(value: number, estimated: boolean): string {
+  return estimated ? `~ ${formatCurrency(value)}` : formatCurrency(value)
+}
+
 /** yyyy-mm -> mm/aaaa */
 export function formatMonthBR(month: string): string {
   const [year, monthNumber] = month.split('-')

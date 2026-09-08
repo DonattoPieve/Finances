@@ -144,4 +144,4 @@ monoespaçada só onde o olho compara coluna.
 
 ## Licença
 
-Ainda não definida — na ausência de uma, valem os direitos reservados por padrão.
+MIT — ver [LICENSE](LICENSE).
